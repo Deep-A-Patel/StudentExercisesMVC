@@ -7,15 +7,15 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.Extensions.Configuration;
-using StudentExeciseMVC.Models;
 using StudentExercises.Models.ViewModels;
 using StudentExercisesMVC.Models;
+
 namespace StudentExercisesMVC.Controllers
 {
-    public class StudentsController : Controller
+    public class InstructorsController : Controller
     {
         private readonly IConfiguration _config;
-        public StudentsController(IConfiguration config)
+        public InstructorsController(IConfiguration config)
         {
             _config = config;
         }
@@ -26,71 +26,76 @@ namespace StudentExercisesMVC.Controllers
                 return new SqlConnection(_config.GetConnectionString("DefaultConnection"));
             }
         }
-        // GET: Students
+
+        // GET: Instructors
         public ActionResult Index()
         {
-            var students = new List<Student>();
+            var instructors = new List<Instructor>();
             using (SqlConnection conn = Connection)
             {
                 conn.Open();
                 using (SqlCommand cmd = conn.CreateCommand())
                 {
                     cmd.CommandText = @"
-                        SELECT Id, FirstName, LastName, SlackHandle, CohortId
-                        FROM Student
+                        SELECT Id, FirstName, LastName, SlackHandle, CohortId, Specialty
+                        FROM Instructor
                     ";
                     SqlDataReader reader = cmd.ExecuteReader();
                     while (reader.Read())
                     {
-                        students.Add(new Student()
+                        instructors.Add(new Instructor()
                         {
                             Id = reader.GetInt32(reader.GetOrdinal("Id")),
                             FirstName = reader.GetString(reader.GetOrdinal("FirstName")),
                             LastName = reader.GetString(reader.GetOrdinal("LastName")),
                             SlackHandle = reader.GetString(reader.GetOrdinal("SlackHandle")),
+                            Specialty = reader.GetString(reader.GetOrdinal("Specialty")),
                             CohortId = reader.GetInt32(reader.GetOrdinal("CohortId"))
                         });
                     }
                     reader.Close();
                 }
             }
-            return View(students);
+            return View(instructors);
         }
-        // GET: Students/Details/5
+
+        // GET: Instructors/Details/5
         public ActionResult Details(int id)
         {
-            Student student = null;
+            Instructor instructor = null;
             using (SqlConnection conn = Connection)
             {
                 conn.Open();
                 using (SqlCommand cmd = conn.CreateCommand())
                 {
                     cmd.CommandText = @"
-                        SELECT Id, FirstName, LastName, SlackHandle, CohortId
-                        FROM Student
+                        SELECT Id, FirstName, LastName, SlackHandle, CohortId, Specialty
+                        FROM Instructor
                         WHERE Id = @id
                     ";
                     cmd.Parameters.Add(new SqlParameter("@id", id));
                     SqlDataReader reader = cmd.ExecuteReader();
                     if (reader.Read())
                     {
-                        student = new Student()
+                        instructor = new Instructor()
                         {
                             Id = reader.GetInt32(reader.GetOrdinal("Id")),
                             FirstName = reader.GetString(reader.GetOrdinal("FirstName")),
                             LastName = reader.GetString(reader.GetOrdinal("LastName")),
                             SlackHandle = reader.GetString(reader.GetOrdinal("SlackHandle")),
+                            Specialty = reader.GetString(reader.GetOrdinal("Specialty")),
                             CohortId = reader.GetInt32(reader.GetOrdinal("CohortId"))
                         };
                     }
                 }
             }
-            return View(student);
+            return View(instructor);
         }
-        // GET: Students/Create
+
+        // GET: Instructors/Create
         public ActionResult Create()
         {
-            var viewModel = new StudentCreateViewModel();
+            var viewModel = new InstructorCreateViewModel();
             var cohorts = GetAllCohorts();
             var selectItems = cohorts
            .Select(cohort => new SelectListItem
@@ -107,10 +112,11 @@ namespace StudentExercisesMVC.Controllers
             viewModel.Cohorts = selectItems;
             return View(viewModel);
         }
-        // POST: Studenst/Create
+
+        // POST: Instructors/Create
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public ActionResult Create(Student student)
+        public ActionResult Create(Instructor instructor)
         {
             try
             {
@@ -120,22 +126,25 @@ namespace StudentExercisesMVC.Controllers
                     using (SqlCommand cmd = conn.CreateCommand())
                     {
                         cmd.CommandText = @"
-                            INSERT INTO Student (
+                            INSERT INTO Instructor (
                                 FirstName, 
                                 LastName, 
-                                SlackHandle, 
+                                SlackHandle,
+                                Specialty,
                                 CohortId
                             ) VALUES (
                                 @firstName,
                                 @lastName,
                                 @slackHandle,
+                                @specialty,
                                 @cohortId
                             )
                         ";
-                        cmd.Parameters.AddWithValue("@firstName", student.FirstName);
-                        cmd.Parameters.AddWithValue("@lastName", student.LastName);
-                        cmd.Parameters.AddWithValue("@slackHandle", student.SlackHandle);
-                        cmd.Parameters.AddWithValue("@cohortId", student.CohortId);
+                        cmd.Parameters.AddWithValue("@firstName", instructor.FirstName);
+                        cmd.Parameters.AddWithValue("@lastName", instructor.LastName);
+                        cmd.Parameters.AddWithValue("@slackHandle", instructor.SlackHandle);
+                        cmd.Parameters.AddWithValue("@specialty", instructor.Specialty);
+                        cmd.Parameters.AddWithValue("@cohortId", instructor.CohortId);
                         cmd.ExecuteNonQuery();
                     }
                 }
@@ -146,12 +155,29 @@ namespace StudentExercisesMVC.Controllers
                 return View();
             }
         }
-        // GET: Students/Edit/5
+
+        // GET: Instructors/Edit/5
         public ActionResult Edit(int id)
         {
-            return View();
+            var viewModel = new InstructorEditViewModel();
+            var cohorts = GetAllCohorts();
+            var selectItems = cohorts
+           .Select(cohort => new SelectListItem
+           {
+               Text = cohort.Name,
+               Value = cohort.Id.ToString()
+           })
+           .ToList();
+            selectItems.Insert(0, new SelectListItem
+            {
+                Text = "Choose cohort...",
+                Value = "0"
+            });
+            viewModel.Cohorts = selectItems;
+            return View(viewModel);
         }
-        // POST: Students/Edit/5
+
+        // POST: Instructors/Edit/5
         [HttpPost]
         [ValidateAntiForgeryToken]
         public ActionResult Edit(int id, IFormCollection collection)
@@ -159,6 +185,7 @@ namespace StudentExercisesMVC.Controllers
             try
             {
                 // TODO: Add update logic here
+
                 return RedirectToAction(nameof(Index));
             }
             catch
@@ -166,12 +193,14 @@ namespace StudentExercisesMVC.Controllers
                 return View();
             }
         }
-        // GET: Students/Delete/5
+
+        // GET: Instructors/Delete/5
         public ActionResult Delete(int id)
         {
             return View();
         }
-        // POST: Students/Delete/5
+
+        // POST: Instructors/Delete/5
         [HttpPost]
         [ValidateAntiForgeryToken]
         public ActionResult Delete(int id, IFormCollection collection)
@@ -179,6 +208,7 @@ namespace StudentExercisesMVC.Controllers
             try
             {
                 // TODO: Add delete logic here
+
                 return RedirectToAction(nameof(Index));
             }
             catch
